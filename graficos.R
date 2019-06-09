@@ -25,11 +25,14 @@ graf_quantitativa <- sidebarLayout(
       Dispomos os valores possíveis, em ordem, em barras e a altura é relativa a frequência."),
     h5(strong("Histograma")),
     p("Para variáveis quantitativas contínuas, fica inviável representar uma barra para cada observação. Imagine: 
-      teria uma barra para o valor 4.82, uma para o 4.91, e assim em diante. Para facilitar isso, mapeamos os 
-      valores em intervalos e representa, por meio de um histograma, essa quantidade limitada de intervalos."),
+      teria uma barra para o valor 4.82, uma para o 4.91, e assim em diante. Portanto, transformamos a variável 
+      quantitativa em uma qualitativa ordinal por meio da criação de intervalos. A variável Peso, por exemplo, 
+      é dividida em faixas de peso, para assim construir o histograma."),
+    p("O histograma é um gráfico de barras adjacentes com bases proporcionais aos intervalos definidos, e a área de cada 
+      barra é proporcional à sua respectiva frequência."),
     h5(strong("Boxplot")),
-    HTML("<p>O boxplot é um gráfico muito utilizado pois a partir dele pode-se obter muitas informações sobre a dispersão 
-      e assimetria dos dados. Ele se dá por um retângulo, onde cada limite é um quantil (o limite inferior é o 
+    HTML("<p>O boxplot é um gráfico muito utilizado pois a partir dele pode-se obter muitas informações sobre a dispersão, 
+posição, assimetria, caudas e valores discrepantes entre os dados. Ele se dá por um retângulo, onde cada limite é um quantil (o limite inferior é o 
       primeiro quartil (q1), e o limite superior é o terceiro quartil (q3).) O traço no meio representa a <strong>mediana</strong> 
       dos dados (q2). A partir do retângulo, para cima, segue uma linha até o ponto mais remoto que não exceda 
       LS = q3 + 1,5dq, chamado de limite superior. Similarmente, segue uma linha abaixo até o ponto que não exceda 
@@ -54,7 +57,7 @@ graf_quantitativa <- sidebarLayout(
 )
 
 graf_bidimensional <- fluidPage(
-  h3(strong("Gráficos para Variáveis Qualitativas")),
+  h3(strong("Gráficos Bivariados")),
   fluidRow(column(4, h4(strong("Duas variáveis qualitativas")),
                   selectInput("varGrafBiQual1", "Variável 1", choices = c("Sexo", "Ano letivo", "Trabalha", 
                                                                           "Relacionamento", "Cozinha", "Come fora", 
@@ -77,10 +80,9 @@ graf_bidimensional <- fluidPage(
                   h4(strong("Duas variáveis quantitativas")),
                   selectInput("varGrafBiQuant1", "Variável 1", choices = c("Percepção de Saúde", "Peso", "Ano letivo", "Altura"), selected = "Altura"),
                   selectInput("varGrafBiQuant2", "Variável 2", choices = c("Percepção de Saúde", "Peso", "Ano letivo", "Altura"), selected = "Peso"),
-                  p("Pode-se observar a distribuição de duas variáveis quantitativas também por meio de tabela. Porém, 
-                    em alguns casos pode ser necessária a divisão em intervalos (casos de variável quantitativa contínua). Uma forma 
-                    bem útil de visualização de distribuição e relação de duas variáveis quantitativas é o gráfico de dispersão. Nele, 
-                    temos dois eixos, cada um representando uma variável, e assim colocam-se os pontos para representar cada observação."),
+                  p("O gráfico de dispersão bivariado é utilizado para observar a correlação entre duas variáveis quantitativas. Por exemplo, 
+se a nuvem de pontos se assemelha a uma reta crescente ou descrescente, há indícios de correlação linear entre as duas variáveis. 
+No entanto, vale ressaltar que há outros tipos de correlação, não lineares."),
                   plotOutput("scatterGraf")
                   ),
            column(4,
@@ -90,9 +92,9 @@ graf_bidimensional <- fluidPage(
                                                                                     "Vegetais nas refeições", "Pratica exercícios", 
                                                                                     "Pratica esportes", "Toma vitaminas")),
                   selectInput("varQualBoxplot2", "Variável Quantitativa", choices = c("Peso", "Altura")),
-                  p("Também é muito comum visualizar o que acontece com uma variável qualitativa dentro de cada categoria de uma 
-                    variável qualitativa. Uma forma de realizar isso é através de vários boxplots, similares aos vistos anteriormente, mas onde há 
-                    um dele para cada valor da variável qualitativa. Compare cada variável qualitativa com o peso ou altura nos boxplots abaixo:"),
+                  p("Também é possível visualizar a relação existente entre uma variável qualitativa e uma variável quantitativa. Isto pode ser feito por meio do cálculo de 
+medidas resumo, e construção de histogramas e boxplots, para a variável quantitativa em cada categoria da qualitativa. Compare cada variável qualitativa com o peso ou altura nos boxplots abaixo:"),
+                  #colocar tabela com medidas resumo
                   plotOutput("multiBoxplot")
                   )
            )

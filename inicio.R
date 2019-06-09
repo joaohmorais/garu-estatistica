@@ -40,6 +40,7 @@ inicio <- fluidPage(
       explicação das variáveis que vocês podem encontrar e usar no aplicativo:
 </p>"),
     tableOutput("tabelaInformativa"),
+    downloadButton("botaoBaixarDados", "Download dos dados"),
     helpText("Vale informar que a variável 'Altura' não existia na base de dados original e foi estimada a partir de 
              métodos de regressão treinados com a base de dados 'weight-height', também do Kaggle.")
   )

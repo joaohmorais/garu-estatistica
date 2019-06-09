@@ -1,6 +1,8 @@
 library(plyr)
 data <- read.csv("data/food-choices/clean_data.csv")[,-1]
 altura <- read.csv("data/altura.csv")[-1]
+idade <- read.csv("data/idade.csv")[-1]
+labs <- read.csv("data/lab_results.csv")[-1]
 colnames(data) <- gsub(".", ' ',colnames(data), fixed = TRUE)
 
 
@@ -14,6 +16,36 @@ data$Relacionamento <- revalue(data$Relacionamento, c("Solteirx" = "Solteiro",
                                                       "Casadx" = "Casado"))
 data$Altura <- as.numeric(unlist(altura))
 
+data$Idade <- idade$Idade
+data <- cbind(data, labs)
+colnames(data)[c(16:21)] <- c("HDL", "LDL", "Triglicérides", "Álcool: Consumo mensal", 
+                              "Álcool: Dose média",
+                              "Consumo de tabaco")
+data$`Consumo de tabaco` <- factor(data$`Consumo de tabaco`, levels = c(
+  "Não fuma",
+  "Até 1 cigarro",
+  "Até 5 cigarros",
+  "Até 1 maço",
+  "2 maços ou mais"
+))
+
+data$`Álcool: Consumo mensal` <- factor(data$`Álcool: Consumo mensal`, 
+                                        levels = c(
+                                          "Não bebe",
+                                          "Raramente",
+                                          "Ocasional",
+                                          "Frequente",
+                                          "Muito frequente"
+                                        ))
+
+data$`Álcool: Dose média` <- factor(data$`Álcool: Dose média`,
+                                    levels = c(
+                                      "Não bebe",
+                                      "Até 2 doses",
+                                      "3 a 4 doses",
+                                      "5 a 11 doses",
+                                      "12 ou mais doses"
+                                    ))
 
 example_dataframe <- as.data.frame(rbind(
   c("Sexo", "'Masculino', 'Feminino'", "Qualitativa Nominal"),
@@ -74,3 +106,6 @@ data$`Culinária favorita`[is.na(data$`Culinária favorita`)] <- "Nenhuma"
 data$`Culinária favorita` <- as.factor(data$`Culinária favorita`)
 data$`Pratica esportes`[is.na(data$`Pratica esportes`)] <- "Não"
 data$Peso <- round(data$Peso)
+
+head(data)
+write.csv(data, "handled_data.csv")

@@ -51,6 +51,15 @@ brown <- "#4c380c"
 red_nail <- '#ce4b37'
 red_broken_nail <- '#300802'
 
+output$botaoBaixarDados <- downloadHandler(
+  filename = function() {
+    paste("dados_saude_alimentacao", ".csv", sep="")
+  },
+  content = function(file) {
+    write.csv(mtcars, file)
+  }
+)
+
   
 getmode <- function(v) {
   uv <- unique(v)
