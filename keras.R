@@ -235,7 +235,7 @@ addition <- data.frame(hdl_prev, ldl_prev, trig_prev, revalue(
 ), revalue(
   alc_dose_prev,
   c(
-    "1" = "Não bebe",
+    "1" = "Uma dose",
     '2' = "Até 2 doses", 
     "3" = "3 a 4 doses",
     "4" = "5 a 11 doses", 

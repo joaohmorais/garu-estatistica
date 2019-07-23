@@ -3,7 +3,16 @@ library(ggplot2)
 library(shinyjs)
 library(cowplot)
 library(dplyr)
+library(reshape2)
 elementos <- sort(round(runif(20, min = 1, max = 10)))
+
+floorN <- function(x, N){ 
+  N*floor(x/N) 
+}
+
+ceilN <- function(x, N) {
+  N*ceiling(x/N)
+}
 
 values <- reactiveValues()
 values$showMedia <- FALSE
@@ -40,6 +49,10 @@ testeQui_params$colnames <- c("Melhora", "Não", "Total")
 testeQui_params$rownames <- c("Droga", "Placebo", "Total")
 testeQui_params$chi <- 9.3
 
+userData <- reactiveValues(data=data, custom=FALSE, factors=native_factors, 
+                           numbers = native_numbers, shortLevels = native_shortLevels,
+                           continuous = native_continuous)
+
 
 blue <- c("#A1D2CE", "#8AD1CB", "#78CAD2", "#62A8AC", "#4CA6AA", "#5497A7", "#50858B", "#254A4F")
 colorful <- c("#20BFB2", "#63BE76", "#A8B245", "#E49C45", "#FE8A77", "#F48BAE", "#BCA0D8", "#64B5DA", "#c9e5f2")
@@ -51,14 +64,7 @@ brown <- "#4c380c"
 red_nail <- '#ce4b37'
 red_broken_nail <- '#300802'
 
-output$botaoBaixarDados <- downloadHandler(
-  filename = function() {
-    paste("dados_saude_alimentacao", ".csv", sep="")
-  },
-  content = function(file) {
-    write.csv(mtcars, file)
-  }
-)
+
 
   
 getmode <- function(v) {
@@ -93,6 +99,99 @@ function(input, output, session) {
   #   ))
   # }, deleteFile = FALSE)
   
+  output$statusDadosUsuario <- renderUI({
+    input$modalOk
+    #print(head(userData$dados))
+    texto <- "<p>Nenhuma base de dados selecionada.</p>"
+    if (!is.null(userData$data)) {
+      texto <- paste0("<p>Base de dados selecionada: <strong>", userData$nome, "</strong></p>")
+    }
+    HTML(texto)
+  })
+  
+  output$botaoBaixarDados <- downloadHandler(
+    filename = function() {
+      paste("dados_saude_alimentacao", ".csv", sep="")
+    },
+    content = function(file) {
+      write.csv(mtcars, file)
+    }
+  )
+  
+  userDataDialog <- function(failed = FALSE) {
+    modalDialog(
+      fileInput("userDataUploader", "Escolha arquivo CSV",
+                multiple = FALSE,
+                accept = c("text/csv",
+                           "text/comma-separated-values,text/plain",
+                           ".csv")),
+      span(
+        if (failed) {
+          div(tags$b("Arquivo escolhido inválido. Por favor, escolha outro.", style = "color: red;"))
+        }
+      ), 
+      footer = tagList(
+        modalButton("Cancelar"),
+        actionButton("modalOk", "Ok")
+      )
+    )
+  }
+  
+  checaDialog <- reactive({
+    # Check that data object exists and is data frame.
+    tryCatch({
+      userData$data <- read.csv(input$userDataUploader$datapath)
+      userData$nome <- input$userDataUploader$name
+      if (!is.null(userData$data$X)) {
+        userData$data$X <- NULL
+      }
+      userData$factors <- sapply(userData$data, is.factor)
+      userData$numbers <- sapply(userData$data, is.numeric) | sapply(userData$data, is.integer)
+      userData$shortLevels <- sapply(userData$data, nlevels) < 8 & userData$factors
+      userData$continuous <- sapply(userData$data, is.numeric)
+      userData$custom <- TRUE
+      updateSelectInput(session, "varGrafQuant")
+    }, error = function(e) {updateSelectInput(session, "dataSource", selected = "nativo")
+      showNotification("Não foi possível importar seu conjunto de dados. Verifique 
+                       ou tente outro arquivo.",
+                       duration = 3, 
+                       closeButton = TRUE,
+                       type = "error")})
+    if (!is.null(userData$data) && is.data.frame(userData$data)) {
+      removeModal()
+    } else {
+      showModal(userDataDialog(failed = TRUE))
+    }
+  })
+   
+  observeEvent(input$modalOk, {
+    print(input$userDataUploader)
+    checaDialog()
+    print(head(userData$data))
+  }
+               
+  )
+  
+  observeEvent(input$selecionarDados,
+               showModal(userDataDialog())
+  )
+  
+  observeEvent(input$dataSource, {
+    if (input$dataSource == "Dados do usuário"
+        && !userData$custom) {
+      showModal(userDataDialog())
+    }
+    
+    if (input$dataSource == "nativo") {
+      userData$data <- data
+      userData$custom <- FALSE
+      userData$factors <- native_factors
+      userData$numbers <- native_numbers
+      userData$shortLevels <- native_shortLevels
+    }
+  })
+  
+  
   output$tabelaExemploVariaveis <- renderTable(example_dataframe, bordered = TRUE)
   
   output$imagemTiposVariaveis <- renderImage({
@@ -121,7 +220,7 @@ function(input, output, session) {
                                        bordered = TRUE, striped = TRUE)
   
   observeEvent(input$geraElementos, {
-    elementos <<- sort(round(runif(input$slider_qtd_elementos, min = 1, max = input$slider_max_valor)))
+    elementos <<- sort(round(runif(input$slider_qtd_elementos, min = input$slider_min_max_valor[1], max = input$slider_min_max_valor[2])))
   })
   
   getElementos <- reactive({
@@ -155,7 +254,7 @@ function(input, output, session) {
   
   output$mediaTitle <- renderText({
     input$geraElementos
-    paste0("<h4> Média: <strong> ", mean(elementos), "</strong> </h4>")
+    paste0("<h4> Média: <strong> ", round(mean(elementos), 2), "</strong> </h4>")
   })
   
   output$showMedia <- reactive({
@@ -178,7 +277,7 @@ function(input, output, session) {
         
     }
     
-    text <- paste0(text, ")/", length(elementos), " = ", mean(elementos))
+    text <- paste0(text, ")/", length(elementos), " = ", round(mean(elementos), 4))
     text
   })
   
@@ -204,7 +303,7 @@ function(input, output, session) {
   
   output$medianaTitle <- renderText({
     input$geraElementos
-    paste0("<h4> Mediana: <strong> ", median(elementos), "</strong> </h4>")
+    paste0("<h4> Mediana: <strong> ", round(median(elementos), 2), "</strong> </h4>")
   })
   
   output$medianaExplain <- renderUI({
@@ -219,7 +318,7 @@ function(input, output, session) {
     if (length(elementos)%%2 == 1) {
       text <- paste0(text, median(elementos))
     } else {
-      text <- paste0(text, "(", elementos[length(elementos)/2], " + ", elementos[(length(elementos)/2) + 1], ")/2 = ", median(elementos))
+      text <- paste0(text, "(", elementos[length(elementos)/2], " + ", elementos[(length(elementos)/2) + 1], ")/2 = ", round(median(elementos), 4))
     }
     text
   })
@@ -339,7 +438,7 @@ function(input, output, session) {
   
   output$varianciaTitle <- renderText({
     input$geraElementos
-    paste0("<h4> Variância: <strong> ", round(var(elementos), 4), "</strong> </h4>")
+    paste0("<h4> Variância: <strong> ", round(var(elementos), 2), "</strong> </h4>")
   })
   
   output$varianciaExplain <- renderUI({
@@ -352,10 +451,10 @@ function(input, output, session) {
     text <- "Variância = ("
     for (i in (1:length(elementos))) {
       if (i != length(elementos)) {
-        text <- paste0(text, "(",elementos[i], " - ", mean(elementos), ")^2 + ")
+        text <- paste0(text, "(",elementos[i], " - ", round(mean(elementos), 4), ")^2 + ")
       }
       else {
-        text <- paste0(text, "(",elementos[i], " - ", mean(elementos), ")^2)/", length(elementos), " = ", var(elementos))
+        text <- paste0(text, "(",elementos[i], " - ", round(mean(elementos), 4), ")^2)/", length(elementos), " = ", round(var(elementos), 4))
       }
     }
     text
@@ -383,7 +482,7 @@ function(input, output, session) {
   
   output$dpTitle <- renderText({
     input$geraElementos
-    paste0("<h4> Desvio Padrão: <strong> ", round(sd(elementos), 4), "</strong> </h4>")
+    paste0("<h4> Desvio Padrão: <strong> ", round(sd(elementos), 2), "</strong> </h4>")
   })
   
   output$dpExplain <- renderUI({
@@ -393,7 +492,7 @@ function(input, output, session) {
   
   output$exDp <- renderText({
     input$geraElementos
-    text <- paste0("Desvio Padrão = sqrt(", var(elementos), ") = ", sd(elementos))
+    text <- paste0("Desvio Padrão = sqrt(", round(var(elementos), 2), ") = ", round(sd(elementos), 4))
     text
   })
   
@@ -432,8 +531,8 @@ function(input, output, session) {
     amostra <- sample(elementos, tam_amostra, replace = FALSE)
     text <- paste0("Separando uma amostra exemplo dos elementos gerados: \n", vectorToString(amostra),
                    "\nCalcula-se o seu desvio padrão = sqrt(var(", vectorToString(amostra), ")) = ", 
-                   sd(amostra), "\nE divide-se pela raiz do tamanho da amostra: \n", 
-                   sd(amostra), "/sqrt(", tam_amostra, ") = ", (sd(amostra)/sqrt(tam_amostra)))
+                   round(sd(amostra), 4), "\nE divide-se pela raiz do tamanho da amostra: \n", 
+                   round(sd(amostra), 4), "/sqrt(", tam_amostra, ") = ", round((sd(amostra)/sqrt(tam_amostra)), 4))
     text
   })
   
@@ -522,59 +621,158 @@ function(input, output, session) {
   #Página Gráficos
   ##################################################################################################
   
+  output$uiGrafQual <- renderUI({
+    tags <- tagList(h3(strong("Gráficos para variáveis qualitativas")))
+    if (sum(userData$shortLevels) >= 1) {
+      tags <- tagList(tags, selectInput("varGrafQual", "Variável", choices = colnames(userData$data)[userData$shortLevels]))
+    }
+    tags <- tagList(
+      tags,
+      h5(strong("Gráfico de Barras")),
+      p("O gráfico de barras se dá por retângulos (barras) em que em uma de suas direções (mais frequentemente 
+      na vertical) representa-se a frequência absoluta (contagem) ou relativa (porcentagem) de uma 
+      variável qualitativa. Cada barra representa um possível valor e todas são paralelas umas às outras."),
+      h5(strong("Gráfico de Pizza")),
+      p("O gráfico de setores, ou gráfico de pizza, consiste de um círculo dividido em fatias que são proporcionais 
+      às frequências relativas da variável."),
+      br(),
+      helpText("Fonte: Morettin, P. and Bussab, W. (2000). Estatística Básica (7a. ed.). Editora Saraiva.")
+    )
+    tags
+  })
+  
+  output$uiGrafQuant <- renderUI({
+    tags <- tagList(h3(strong("Gráficos para variáveis quantitativas")))
+    if (sum(userData$numbers) >= 1) {
+      tags <- tagList(tags, 
+                      selectInput("varGrafQuant", "Variável", choices = colnames(userData$data)[userData$numbers])
+                      )
+    }
+    
+    tags <- tagList(
+      tags,
+      h5(strong("Gráfico de Barras")),
+      p("Quando trabalhamos com variáveis quantitativas discretas, ou seja, que assumem uma quantidade limitada 
+        de valores, podemos usar um gráfico similar ao de barras usado para variáveis qualitativas ordinais. 
+        Dispomos os valores possíveis, em ordem, em barras e a altura é relativa a frequência."),
+    h5(strong("Histograma")),
+    p("Para variáveis quantitativas contínuas, fica inviável representar uma barra para cada observação. Imagine: 
+      teria uma barra para o valor 4.82, uma para o 4.91, e assim em diante. Portanto, transformamos a variável 
+      quantitativa em uma qualitativa ordinal por meio da criação de intervalos. A variável Peso, por exemplo, 
+      é dividida em faixas de peso, para assim construir o histograma."),
+    p("O histograma é um gráfico de barras adjacentes com bases proporcionais aos intervalos definidos, e a área de cada 
+      barra é proporcional à sua respectiva frequência."),
+    h5(strong("Boxplot")),
+    HTML("<p>O boxplot é um gráfico muito utilizado pois a partir dele pode-se obter muitas informações sobre a dispersão, 
+         posição, assimetria, caudas e valores discrepantes entre os dados. Ele se dá por um retângulo, onde cada limite é um quantil (o limite inferior é o 
+         primeiro quartil (q1), e o limite superior é o terceiro quartil (q3).) O traço no meio representa a <strong>mediana</strong> 
+         dos dados (q2). A partir do retângulo, para cima, segue uma linha até o ponto mais remoto que não exceda 
+         LS = q3 + 1,5dq, chamado de limite superior. Similarmente, segue uma linha abaixo até o ponto que não exceda 
+         LI = q1 - 1,5dq, chamando limite inferior. Os valores acima do limite superior e abaixo do limite inferior 
+         são plotados como pontos e chamados de outliers ou valores atípicos.</p>"),
+    br(),
+    helpText("Observação: dq é a distância interquartil, que se dá por dq = q3 - q1."),
+    br(),
+    helpText("Fonte: Morettin, P. and Bussab, W. (2000). Estatística Básica (7a. ed.). Editora Saraiva.")
+    )
+    tags
+  })
+  
   output$graficosQual <- renderUI({
     tags <- NULL
-    tags <- 
     
-    
-    if (input$varGrafQual %in% c("Sexo", "Trabalha", "Relacionamento", "Pratica esportes", "Toma vitaminas", "Culinária favorita")) {
-      tags <- tagList(
-                 column(6,h4(strong("Gráfico de Barras")),
-                        plotOutput("grafBarras")),
-                 column(6, h4(strong("Gráfico de Pizza")),
-                        plotOutput("grafPizza")))
+
+    if (sum(userData$shortLevels) >= 1) {
+      req(input$varGrafQual)
+      req(input$varGrafQual %in% colnames(userData$data))
+      if (!userData$custom) {
+        if (input$varGrafQual %in% c("Sexo", "Trabalha", "Relacionamento", "Pratica esportes", "Toma vitaminas", "Culinária favorita")) {
+          tags <- tagList(
+            column(6,h4(strong("Gráfico de Barras")),
+                   plotOutput("grafBarras")),
+            column(6, h4(strong("Gráfico de Pizza")),
+                   plotOutput("grafPizza")))
+        } else {
+          tags <- tagList(
+            h4(strong("Gráfico de Barras")),
+            plotOutput("grafBarras"),
+            helpText("O gráfico de pizza não é exibido pois a variável é qualitativa ordinal.")
+          )
+        }
+      } else {
+        tags <- tagList(
+          column(6,h4(strong("Gráfico de Barras")),
+                 plotOutput("grafBarras")),
+          column(6, h4(strong("Gráfico de Pizza")),
+                 plotOutput("grafPizza"))
+        )
+      }
     } else {
-      tags <- tagList(
-                 h4(strong("Gráfico de Barras")),
-                 plotOutput("grafBarras"),
-                 helpText("O gráfico de pizza não é exibido pois a variável é qualitativa ordinal.")
-               )
+      print("entrou")
+      tags <- tagList(p(h4("A fonte de dados que você está utilizando não possui variáveis qualitativas 
+                para podemos mostrar os gráficos. Escolha outra fonte de dados ou use os dados nativos.")))
+      #imagemTriste?
     }
+    
+    
     tags
     
   })
   
+  output$graficosQuant <- renderUI({
+    tags <- NULL
+    if (sum(userData$numbers) >= 1) {
+      tags <- tagList(
+        fluidRow(column(6,htmlOutput("tituloGraf1"),
+                        plotOutput("histograma"),
+                        conditionalPanel("input.varGrafQuant != 'Ano letivo' && input.varGrafQuant != 'Percepção de Saúde'",
+                                         sliderInput("histNumBins", "Número de Barras", min = 5, max = 20, value = 10, step = 1)),
+                        htmlOutput("htGraf1")
+        ),
+        column(6, h4(strong("Boxplot")),
+               plotOutput("boxplot"))),
+        fluidRow(column(6,
+                        uiOutput("histAlt")))
+      )
+    } else {
+      tags <- tagList(
+        p("A fonte de dados que você está utilizando não possui variáveis quantitativas 
+          para mostrarmos os gráficos. Escolha outra fonte de dados ou use os dados nativos.")
+      )
+    }
+    
+    tags
+  })
+  
   getQualPlotData <- reactive({
-    return (data[input$varGrafQual])
+    req(input$varGrafQual)
+    req(input$varGrafQual %in% colnames(userData$data))
+    return (userData$data[input$varGrafQual])
   })
   
   getQuantPlotData <- reactive({
-    return (data[input$varGrafQuant])
+    req(input$varGrafQuant)
+    req(input$varGrafQuant %in% colnames(userData$data))
+    return (userData$data[input$varGrafQuant])
   })
   
   output$grafBarras <- renderPlot({
     selData <- getQualPlotData()
     selData <- as.data.frame(table(selData))
     colnames(selData) <- c("cat", "freq")
+    selData$freq <- selData$freq/sum(selData$freq)
     print(selData)
     
     g <- ggplot(data = selData, aes(x=cat, y=freq, fill = cat)) +
-      geom_bar(stat="identity", colour = "black", width = 0.8) + 
-      geom_text(aes(x = cat, y = freq, label = freq), colour = "black", vjust = -2) + 
+      geom_bar(stat="identity", colour = "black", width = 0.8) +
+      geom_text(aes(x = cat, y = freq, label = round(freq, 2)), colour = "black", vjust = -2) +
       scale_fill_manual(values=colorful) +
       guides(fill=FALSE) +
       theme_classic() +
       scale_x_discrete(name = input$varGrafQual) +
-      scale_y_continuous(name = "Frequência absoluta", limits = c(0, max(selData$freq) + 5)) + 
-      theme(axis.title.y = element_text(size = 16), 
-            axis.text.y = element_text(size = 12))
-
-    if (input$varGrafQual == "Culinária favorita") {
-      g <- g + theme(axis.text.x = element_text(angle = -90, hjust = 0.5))
-    } else {
-      g <- g + theme(axis.title.x = element_text(face = "bold", size = 16), 
-                     axis.text.x = element_text(size = 12))
-    }
+      scale_y_continuous(name = "Frequência relativa", limits = c(0, max(selData$freq) + 0.05)) +
+                           theme(axis.title.y = element_text(size = 16),
+                                 axis.text.y = element_text(size = 12))
     
     g
   })
@@ -603,86 +801,69 @@ function(input, output, session) {
     g
   })
   
+  
+  
   output$histograma <- renderPlot({
-    selData <- getQuantPlotData()
     g <- NULL
-    if (input$varGrafQuant %in% c("Ano letivo", "Percepção de Saúde")) {
-      
-      selData <- as.data.frame(table(selData))
-      g <- NULL
+    req(input$varGrafQuant)
+    req(input$varGrafQuant %in% colnames(userData$data))
+    if (!userData$custom && input$varGrafQuant %in% c("Ano letivo", "Percepção de Saúde")) { #gráfico de barras para var. quant. discr.
+      selData <- data.frame(as.factor(data[,colnames(data) == input$varGrafQuant]))
       colnames(selData) <- c("Var")
-    
-      
-      g <- ggplot(selData, aes(x=Var)) +
-        geom_histogram()
-
-      max <- max(data[input$varGrafQuant])
-      colnames(selData) <- c("cat", "freq")
-      selData$cat <- factor(as.character(selData$cat), levels = c(1:max))
-      g <- ggplot(data = selData, aes(x=cat, y=freq, fill = cat)) +
-        geom_bar(stat="identity", colour = "black", width = 0.8) +
-        geom_text(aes(x = cat, y = freq, label = freq), colour = "black", vjust = -2) +
-        guides(fill=FALSE) +
+      g <- ggplot() + 
+        geom_bar(data=selData, aes(x=Var, fill = Var), stat="count", colour = "black", width = 0.8)
+      gd <- as.data.frame(ggplot_build(g)$data)
+      g <- g + geom_text(data=gd,
+                         aes(x=x, y=ymax, label=count),
+                         colour = "black", vjust = -2) +
         theme_classic() +
+        guides(fill=FALSE) +
         scale_x_discrete(name = input$varGrafQuant) +
-        scale_y_continuous(name = "Frequência absoluta", limits = c(0, max(selData$freq) + 5))
-      
+        scale_y_continuous(name = "Frequência absoluta", limits = c(0, max(gd$ymax) + 5))
     } else {
-      g <- NULL
-      max <- max(selData)
+      selData <- data.frame(userData$data[,colnames(userData$data) == input$varGrafQuant])
       colnames(selData) <- c("Var")
-      
-      
-      if (input$varGrafQuant == "Altura") {
-        x_breaks <-  seq(1.4, 2.2, by=0.1)
-        g <- ggplot(data = selData, aes(x=Var)) + 
-          geom_histogram(breaks=x_breaks, aes(y =..density../10), colour = "black", fill = "#4cA6AA") + 
-          theme_classic() + 
-          scale_x_continuous(breaks = x_breaks) + 
-          ylab("Frequência Relativa") + 
-          xlab(input$varGrafQuant)
-        
-        #print(ggplot_build(g)$data)
-        
-        g <- g + geom_text(data=as.data.frame(ggplot_build(g)$data),
-                           aes(x=x, y=density/10 + 0.007, label=scales::percent(density/10)), size = 3.8)
-        
-      } else {
-        x_breaks <- seq(40, 120, by=10)
-        g <- ggplot(data = selData, aes(x=Var)) + 
-          geom_histogram(breaks=x_breaks, aes(y = 1000*..density..), colour = "black", fill = "#4cA6AA") + 
-          theme_classic() + 
-          scale_x_continuous(breaks = x_breaks) + 
-          ylab("Frequência Relativa") + 
-          xlab(input$varGrafQuant)
-        
-        #print(ggplot_build(g)$data)
-        
-        g <- g + geom_text(data=as.data.frame(ggplot_build(g)$data),
-                           aes(x=x, y=1000*density + 0.7, label=scales::percent(10*density)), size = 3.8)
-      }
-      
+      #N <- ifelse(input$varGrafQuant == "Altura", 0.05, 5)
+      amplitude <- max(selData$Var, na.rm = TRUE) - min(selData$Var, na.rm = TRUE)
+      N <- 5 * 10^(floor(log10(amplitude)) - 1)
+      x_breaks <- seq(floorN(min(selData$Var, na.rm = TRUE), N), ceilN(max(selData$Var, na.rm = TRUE), N), length.out = input$histNumBins + 1)
+      gap <- x_breaks[2] - x_breaks[1]
+      freq <- as.data.frame(table(cut(selData$Var, breaks = x_breaks)))$Freq/(length(selData$Var))
+      seq <- (x_breaks + (gap/2))[-length(x_breaks)]
+      freqdata <- data.frame(seq, freq)
+      print(freqdata)
+      g <- ggplot(data=freqdata, aes(x=seq, y=freq)) + 
+        geom_bar(stat="identity", colour="black", fill = "#4cA6AA", width = gap) + 
+         theme_classic() +
+         scale_x_continuous(breaks = x_breaks, labels = round(x_breaks, ifelse(amplitude < 10, abs(floor(log10(amplitude))) + 1, 0))) + 
+         ylab("Frequência Relativa") +
+         xlab(input$varGrafQuant) + 
+         geom_text(data=freqdata,
+                      aes(x=seq, y=freq + 0.008, label=scales::percent(freq)), size = 3.8)
       
     }
     g
-    
   })
   
   output$tituloGraf1 <- renderText({
-    text <- ifelse((input$varGrafQuant %in% c("Ano letivo", "Percepção de Saúde")),
+    req(input$varGrafQuant)
+    text <- ifelse((!userData$custom && input$varGrafQuant %in% c("Ano letivo", "Percepção de Saúde")),
                    "<h4><strong>Gráfico de Barras</strong></h4>",
                    "<h4><strong>Histograma</strong></h4>")
     text 
   })
   
   output$htGraf1 <- renderText({
-    ifelse((input$varGrafQuant %in% c("Ano letivo", "Percepção de Saúde")), paste0("<span class = 'help-block'> Pode-se utilizar o gráfico de barras pois a variável ", 
+    req(input$varGrafQuant)
+    ifelse((!userData$custom && input$varGrafQuant %in% c("Ano letivo", "Percepção de Saúde")), paste0("<span class = 'help-block'> Pode-se utilizar o gráfico de barras pois a variável ", 
                            input$varGrafQuant, " é quantitativa discreta.</span>"),
            paste0("<span class = 'help-block'> Utiliza-se somente o histograma pois a variável ", 
                   input$varGrafQuant, " é quantitativa contínua.</span>"))
   })
   
   output$boxplot <- renderPlot({
+    req(input$varGrafQuant)
+    req(input$varGrafQuant %in% colnames(userData$data))
     selData <- getQuantPlotData()
     selData <- as.data.frame(selData)
     colnames(selData) <- c("cat")
@@ -694,6 +875,8 @@ function(input, output, session) {
   })
   
   output$histogramaAlt <- renderPlot({
+    req(input$varGrafQuant)
+    req(input$varGrafQuant %in% colnames(userData$data))
     selData <- getQuantPlotData()
     g <- NULL
     colnames(selData) <- c("Var")
@@ -731,7 +914,9 @@ function(input, output, session) {
   
   output$histAlt <- renderUI({
     tags <- NULL
-    if (input$varGrafQuant %in% c("Ano letivo", "Percepção de Saúde")) {
+    req(input$varGrafQuant)
+    req(input$varGrafQuant %in% colnames(userData$data))
+    if (!userData$custom && input$varGrafQuant %in% c("Ano letivo", "Percepção de Saúde")) {
       tags <- tagList(fluidRow(
         column(6, 
                h4(strong(("Histograma")),
@@ -750,40 +935,212 @@ function(input, output, session) {
   
   output$tabHist <- renderTable({
     tab <- NULL
-    if (input$varGrafQuant == "Ano letivo") {
-      tab <- as.data.frame(cbind(c("[1, 2]", "[3, 4]"), c("Início", "Fim")))
-    } else if (input$varGrafQuant == "Percepção de Saúde") {
-      tab <- as.data.frame(cbind(c("[1, 2]", "[3, 4]", "[5, 6]", "[7, 8]", "[9, 10]"), 
-                                 c("Muito ruim", "Ruim", "Regular", "Boa", "Muito boa")))
+    req(input$varGrafQuant)
+    req(input$varGrafQuant %in% colnames(userData$data))
+    if (!userData$custom) {
+      if (input$varGrafQuant == "Ano letivo") {
+        tab <- as.data.frame(cbind(c("[1, 2]", "[3, 4]"), c("Início", "Fim")))
+      } else if (input$varGrafQuant == "Percepção de Saúde") {
+        tab <- as.data.frame(cbind(c("[1, 2]", "[3, 4]", "[5, 6]", "[7, 8]", "[9, 10]"), 
+                                   c("Muito ruim", "Ruim", "Regular", "Boa", "Muito boa")))
+      } 
     }
+    
     tab
   }, striped = TRUE, colnames = FALSE, bordered = TRUE)
   
-  output$tabGrafVarQual <- renderTable({
-    tab <- table(data[,colnames(data) == input$varGrafBiQual1], data[,colnames(data) == input$varGrafBiQual2])
-    tab <- as.data.frame.matrix(tab)
-    tab <- tab/sum(tab)
+  output$biUI <- renderUI({
+    
+    
+    
+    enable1 <- sum(userData$shortLevels) >= 2
+    enable2 <- sum(userData$numbers) >= 2
+    enable3 <- sum(userData$shortLevels) >= 1 & sum(userData$numbers) >= 1
+    print(paste0("shortLevels: ", userData$shortLevels))
+    print(paste0("enable2: ", enable2))
+    print(paste0("enable3: ", enable3))
+    
+    tags <- NULL
+    part1 <- NULL
+    part2 <- NULL
+    part3 <- NULL
+    
+    if (enable1) {
+      part1 <- tagList(
+        h4(strong("Duas variáveis qualitativas")),
+        selectInput("varGrafBiQual1", "Variável 1", choices = colnames(userData$data[userData$shortLevels]), 
+                    selected = colnames(userData$data[userData$shortLevels])[1]),
+        selectInput("varGrafBiQual2", "Variável 2", choices = colnames(userData$data[userData$shortLevels]), 
+                    selected = colnames(userData$data[userData$shortLevels])[2]),
+        p("Imagine que queiramos visualizar a distribuição das observações em 
+                        relação a duas variáveis qualitativas. Podemos, primeiramente, visualizar 
+                        a tabela de frequências relativas: "),
+        tableOutput("tabGrafVarQual"),
+        p("Podemos agora, construir um gráfico de barras muito similar ao visto 
+                        anteriormente, mas com as barras divididas de acordo com a outra variável 
+                        variável qualitativa escolhida"),
+        plotOutput("grafBarraBiQual")
+      )
+    } else {
+      part1 <- tagList(h4(strong("Duas variáveis qualitativas")),
+                       p("Seu banco de dados utilizado não tem variáveis qualitativas o suficiente 
+                         para isso. Por favor escolha outro ou tente com o banco de dados nativo."))
+    }
+    
+    if (enable2) {
+      part2 <- tagList(
+        h4(strong("Duas variáveis quantitativas")),
+        selectInput("varGrafBiQuant1", "Variável 1", choices = colnames(userData$data[userData$numbers]), selected = colnames(userData$data[userData$numbers])[1]),
+        selectInput("varGrafBiQuant2", "Variável 2", choices = colnames(userData$data[userData$numbers]), selected = colnames(userData$data[userData$numbers])[2]),
+        p("O gráfico de dispersão bivariado é utilizado para observar a correlação entre duas variáveis quantitativas. Por exemplo, 
+se a nuvem de pontos se assemelha a uma reta crescente ou descrescente, há indícios de correlação linear entre as duas variáveis. 
+No entanto, vale ressaltar que há outros tipos de correlação, não lineares."),
+        plotOutput("scatterGraf")
+      )
+    } else {
+      part2 <- tagList(h4(strong("Duas variáveis quantitativas")),
+                       p("Seu banco de dados utilizado não tem variáveis quantitativas o suficiente 
+                         para isso. Por favor escolha outro ou tente com o banco de dados nativo."))
+    }
+    
+    if (enable3) {
+      part3 <- tagList(
+        h4(strong("Variáveis qualitativas e quantitativas")),
+        selectInput("varQualBoxplot1", "Variável Qualitativa", choices = colnames(userData$data[userData$shortLevels]), 
+                    selected = colnames(userData$data[userData$shortLevels])[1]),
+        selectInput("varQualBoxplot2", "Variável Quantitativa", choices = colnames(userData$data[userData$numbers]), 
+                    selected = colnames(userData$data[userData$shortLevels])[2]),
+        p("Também é possível visualizar a relação existente entre uma variável qualitativa e uma variável quantitativa. Isto pode ser feito por meio do cálculo de 
+medidas resumo, e construção de histogramas e boxplots, para a variável quantitativa em cada categoria da qualitativa. Compare cada variável qualitativa com uma outra quantitativa contínua nos boxplots abaixo:"),
+        checkboxInput("multiBoxplotUseNA", "Usar NA", value=FALSE),
+        #colocar tabela com medidas resumo
+        plotOutput("multiBoxplot")
+      )
+    } else {
+      part3 <- tagList(h4(strong("Variáveis qualitativas e quantitativas")),
+                       p("Seu banco de dados utilizado não tem variáveis qualitativas/quantitativas o suficiente 
+                         para isso. Por favor escolha outro ou tente com o banco de dados nativo."))
+    }
+    
+    tags <- tagList(
+      h3(strong("Gráficos Bivariados")),
+      fluidRow(column(4, 
+                      part1),
+               column(4, 
+                      part2),
+               column(4,
+                      part3))
+    )
+    
+    tags
+    
+    
+    
+#     tagList(
+#       h3(strong("Gráficos Bivariados")),
+#       fluidRow(column(4,
+#                       h4(strong("Duas variáveis qualitativas")),
+#                       selectInput("varGrafBiQual1", "Variável 1", choices = colnames(userData$data[userData$factors]), selected = 1),
+#                       selectInput("varGrafBiQual2", "Variável 2", choices = colnames(userData$data[userData$factors]), selected = 2),
+#                       p("Imagine que queiramos visualizar a distribuição das observações em 
+#                         relação a duas variáveis qualitativas. Podemos, primeiramente, visualizar 
+#                         a tabela de frequências relativas: "),
+#                       tableOutput("tabGrafVarQual"),
+#                       p("Podemos agora, construir um gráfico de barras muito similar ao visto 
+#                         anteriormente, mas com as barras divididas de acordo com a outra variável 
+#                         variável qualitativa escolhida"),
+#                       plotOutput("grafBarraBiQual")
+#       ),
+#       column(4,
+#              h4(strong("Duas variáveis quantitativas")),
+#              selectInput("varGrafBiQuant1", "Variável 1", choices = colnames(userData$data[userData$numbers]), selected = 1),
+#              selectInput("varGrafBiQuant2", "Variável 2", choices = colnames(userData$data[userData$numbers]), selected = 2),
+#              p("O gráfico de dispersão bivariado é utilizado para observar a correlação entre duas variáveis quantitativas. Por exemplo, 
+# se a nuvem de pontos se assemelha a uma reta crescente ou descrescente, há indícios de correlação linear entre as duas variáveis. 
+# No entanto, vale ressaltar que há outros tipos de correlação, não lineares."),
+#              plotOutput("scatterGraf")
+#       ),
+#       column(4,
+#              h4(strong("Variáveis qualitativas e quantitativas")),
+#              selectInput("varQualBoxplot1", "Variável Qualitativa", choices = colnames(userData$data[userData$factors])),
+#              selectInput("varQualBoxplot2", "Variável Quantitativa", choices = colnames(userData$data[userData$numbers])),
+#              p("Também é possível visualizar a relação existente entre uma variável qualitativa e uma variável quantitativa. Isto pode ser feito por meio do cálculo de 
+# medidas resumo, e construção de histogramas e boxplots, para a variável quantitativa em cada categoria da qualitativa. Compare cada variável qualitativa com uma outra quantitativa contínua nos boxplots abaixo:"),
+#              #colocar tabela com medidas resumo
+#              plotOutput("multiBoxplot")
+#       )
+#       )
+#     )
+  })
+  
+  getBiQualTable <- reactive({
+    tab <- NULL
+    req(input$varGrafBiQual1, input$varGrafBiQual2)
+    req(input$varGrafBiQual1 %in% colnames(userData$data))
+    req(input$varGrafBiQual2 %in% colnames(userData$data))
+    df <- cbind(userData$data[input$varGrafBiQual1], userData$data[input$varGrafBiQual2])
+    colnames(df) <- c("Var1", "Var2")
+    if (!is.factor(df$Var1)) {
+      df$Var1 <- as.factor(df$Var1)
+    }
+    
+    if (!is.factor(df$Var2)) {
+      df$Var2 <- as.factor(df$Var2)
+    }
+    for (i in levels(df$Var1)) {
+      rows <- as.factor(df$Var1) == i
+      col <- (as.data.frame(table(df$Var2[rows]))$Freq)/length(df$Var1[df$Var1==i & !is.na(df$Var1) & !is.na(df$Var2)])
+      col[is.nan(col)] <- 0
+      tab <- cbind(tab, col)
+    }
+    tab <- rbind(tab, round(colSums(tab)))
+    colnames(tab) <- levels(df$Var1)
+    rownames(tab) <- c(levels(df$Var2), "Total")
     tab
+  })
+  
+  output$tabGrafVarQual <- renderTable({
+    getBiQualTable()
   }, rownames = TRUE, bordered = TRUE, striped = TRUE)
   
   output$grafBarraBiQual <- renderPlot({
-    selData <- as.data.frame(table(data[,colnames(data) == input$varGrafBiQual1], data[, colnames(data) == input$varGrafBiQual2]))
-    selData <- selData %>% 
-      group_by(Var1) %>%
-      arrange(Var1, desc(Var2)) %>%
-      mutate(y_pos = cumsum(Freq) - 0.5*Freq)
-    g <- ggplot(selData, aes(x=Var1, y=Freq, fill=Var2)) + 
-      geom_bar(stat="identity", color = "black", width = 0.9) +
-      geom_text(aes(y = y_pos, label = ifelse(Freq > 0, Freq, ""), group = Var2)) +
+    # selData <- as.data.frame(table(data[,colnames(data) == input$varGrafBiQual1], data[, colnames(data) == input$varGrafBiQual2]))
+    # selData <- selData %>% 
+    #   group_by(Var1) %>%
+    #   arrange(Var1, desc(Var2)) %>%
+    #   mutate(y_pos = cumsum(Freq) - 0.5*Freq)
+    # g <- ggplot(selData, aes(x=Var1, y=Freq, fill=Var2)) + 
+    #   geom_bar(stat="identity", color = "black", width = 0.9) +
+    #   geom_text(aes(y = y_pos, label = ifelse(Freq > 0, Freq, ""), group = Var2)) +
+    #   labs(x=input$varGrafBiQual1, y="Frequência absoluta") + 
+    #   scale_fill_discrete(name=input$varGrafBiQual2) +
+    #   theme_classic()
+    # g
+    
+    df_src <- getBiQualTable()
+    df <- melt(df_src[-dim(df_src)[1],])
+    print(df)
+    pos <- df %>%
+      group_by(Var2) %>%
+      arrange(Var2, desc(Var1)) %>%
+      mutate(y_pos = cumsum(value) - 0.5*value)
+    print(pos)
+    g <- ggplot(df, aes(x=Var2, y=value, fill = as.factor(Var1))) + 
+      geom_bar(stat="identity", color = "black", width = 0.9) + 
+      geom_text(data=pos, aes(y=y_pos, label = ifelse(value>=0.01, scales::percent(value, digits = 2), ""), group = as.factor(Var1))) +
       labs(x=input$varGrafBiQual1, y="Frequência absoluta") + 
-      scale_fill_discrete(name=input$varGrafBiQual2) +
+      scale_fill_discrete(name=input$varGrafBiQual2) + 
       theme_classic()
     g
+    
     
   })
   
   output$scatterGraf <- renderPlot({
-    selData <- data.frame(data[,colnames(data) == input$varGrafBiQuant1], data[,colnames(data) == input$varGrafBiQuant2])
+    req(input$varGrafBiQuant1, input$varGrafBiQuant2)
+    req(input$varGrafBiQuant1 %in% colnames(userData$data))
+    req(input$varGrafBiQuant2 %in% colnames(userData$data))
+    selData <- data.frame(userData$data[,colnames(userData$data) == input$varGrafBiQuant1], userData$data[,colnames(userData$data) == input$varGrafBiQuant2])
     colnames(selData) <- c("Var1", "Var2")
     g <- ggplot(selData, aes(x=Var1, y=Var2)) + 
       geom_point(color = "#5497A7", size = 3L) +
@@ -793,12 +1150,18 @@ function(input, output, session) {
   })
   
   output$multiBoxplot <- renderPlot({
-    selData <- data.frame(data[,colnames(data) == input$varQualBoxplot1], data[,colnames(data) == input$varQualBoxplot2])
+    req(input$varQualBoxplot1, input$varQualBoxplot2)
+    req(input$varQualBoxplot1 %in% colnames(userData$data))
+    req(input$varQualBoxplot2 %in% colnames(userData$data))
+    selData <- data.frame(userData$data[,colnames(userData$data) == input$varQualBoxplot1], userData$data[,colnames(userData$data) == input$varQualBoxplot2])
     colnames(selData) <- c("Var1", "Var2")
-    if (input$varQualBoxplot1 == "Ano letivo") {
+    if (!is.factor(selData$Var1)) {
       selData$Var1 <- as.factor(as.character(selData$Var1))
     }
-    print(selData)
+    if (!input$multiBoxplotUseNA) {
+      selData <- selData[!is.na(selData$Var1),]
+    }
+    #print(selData)
     g <- ggplot(selData, aes(x=Var1, y=Var2, fill=Var1)) + 
       geom_boxplot() + 
       theme_classic() + 

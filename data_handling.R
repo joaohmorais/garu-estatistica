@@ -40,7 +40,7 @@ data$`Álcool: Consumo mensal` <- factor(data$`Álcool: Consumo mensal`,
 
 data$`Álcool: Dose média` <- factor(data$`Álcool: Dose média`,
                                     levels = c(
-                                      "Não bebe",
+                                      "Uma dose",
                                       "Até 2 doses",
                                       "3 a 4 doses",
                                       "5 a 11 doses",
@@ -50,16 +50,22 @@ data$`Álcool: Dose média` <- factor(data$`Álcool: Dose média`,
 example_dataframe <- as.data.frame(rbind(
   c("Sexo", "'Masculino', 'Feminino'", "Qualitativa Nominal"),
   c("Ano letivo", "1, 2, 3, 4...", "Quantitativa Discreta"),
-  c("Peso", "61.2, 85, 119.3, ...", "Quantitativa Contínua"),
-  c("Altura", "1.75, 1.67, 1.68, ...", "Quantitativa Contínua"), 
-  c("Trabalho", "'Tempo Integral', 'Meio Período', 'Não trabalha'", "Qualitativa Ordinal"),
+  c("Peso (kg)", "61,2; 85; 119,3; ...", "Quantitativa Contínua"),
+  c("Altura (m)", "1,75; 1,67; 1,68; ...", "Quantitativa Contínua"),
+  c("Idade (anos)", "17, 21, 20,...", "Quantitativa Contínua"),
+  c("Trabalho", "'Tempo Integral', 'Meio Período', 'Não trabalha'", "Qualitativa Nominal"),
   c("Relacionamento", "'Solteiro', 'Em um relacionamento', 'Morando junto', ...", "Qualitativa Nominal"),
   c("Cozinha", "'Sempre', 'Quase todo dia', 'Nunca', ...", "Qualitativa Ordinal"),
   c("Come Fora", "'Sempre', 'Quase todo dia', 'Nunca', ...", "Qualitativa Ordinal"),
   c("Culinária Favorita", "'Árabe', 'Oriental', 'Africana', ...", "Qualitativa Nominal"),
   c("Pratica exercícios", "'Sempre', 'Quase todo dia', 'Nunca', ...", "Qualitativa Ordinal"),
   c("Pratica esportes", "'Sim', 'Não'", "Qualitativa Nominal"),
-  c("Toma Vitamina", "'Sim', 'Não'", "Qualitativa Nominal")
+  c("Toma Vitamina", "'Sim', 'Não'", "Qualitativa Nominal"),
+  c("HDL (mg/dL)", "50,76; 56,43; 56,87;", "Quantitativa Contínua"),
+  c("LDL (mg/dL)", "84,93; 100,65; 101,47;", "Quantitativa Contínua"),
+  c("Triglicérides (mg/dL)", "61,32; 55,4; 91,62;", "Quantitativa Contínua"),
+  c("Álcool: Consumo mensal", "'Não bebe', 'Raramente', 'Ocasional', 'Frequente', ...", "Qualitativa Ordinal"),
+  c("Álcool: Dose média", "'Não bebe', 'Até 2 doses', '3 a 4 doses', ...", "Qualitativa Ordinal")
 ))
 
 colnames(example_dataframe) <- c("Variável", "Possíveis Valores", "Tipo de Variável")
@@ -109,3 +115,9 @@ data$Peso <- round(data$Peso)
 
 head(data)
 write.csv(data, "handled_data.csv")
+
+native_factors <- sapply(data, is.factor)
+native_numbers <- sapply(data, is.numeric) | sapply(data, is.integer)
+native_shortLevels <- sapply(data, nlevels) < 6 & sapply(data, is.factor)
+native_continuous <- sapply(data, is.numeric)
+print(native_shortLevels)

@@ -10,6 +10,7 @@ source("prob.R")
 source("distr_prob.R")
 source("prob_cond.R")
 source("inferencia.R")
+source("geometry.R")
 
 navbarPage("GARU", id = "mainNav",
            tabPanel("Início", inicio ,icon = icon("home", lib = "font-awesome")),

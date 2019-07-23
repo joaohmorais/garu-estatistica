@@ -40,6 +40,16 @@ inicio <- fluidPage(
       explicação das variáveis que vocês podem encontrar e usar no aplicativo:
 </p>"),
     tableOutput("tabelaInformativa"),
+    fluidRow(
+      column(6, 
+             selectInput("dataSource", "Fonte de Dados", choices = c("Food choices (nativo)" = "nativo", "Dados do usuário"))
+             ),
+      column(6, 
+             strong("Entrada de Dados"),
+             uiOutput("statusDadosUsuario"),
+             actionButton("selecionarDados", "Selecionar...", icon = icon("upload"))
+             )
+    ),
     downloadButton("botaoBaixarDados", "Download dos dados"),
     helpText("Vale informar que a variável 'Altura' não existia na base de dados original e foi estimada a partir de 
              métodos de regressão treinados com a base de dados 'weight-height', também do Kaggle.")

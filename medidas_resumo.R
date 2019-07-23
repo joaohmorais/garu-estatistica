@@ -8,15 +8,15 @@ medidas_resumo <- fluidPage(
   fluidRow(
     column(6,
            h4(strong("Gerador de Elementos")),
-           p("Gere elementos através dos parâmetros e do botão 'Gerar Elementos'. Depois 
-             acompanhe como suas medidas são calculadas."),
+           p("Gere uma amostra de elementos (números) através dos parâmetros e do botão 'Gerar Elementos'. Depois 
+             acompanhe como suas medidas resumo são calculadas."),
            verbatimTextOutput("printElementos"),
            fluidRow(
              column(4, 
-                    sliderInput("slider_qtd_elementos", label = "Quantidade de Elementos", min = 4, 
+                    sliderInput("slider_qtd_elementos", label = "Quantidade de Elementos (Tamanho da Amostra)", min = 4, 
                                 max = 40, value = 10)),
              column(4,
-                    sliderInput("slider_max_valor", label = "Valor Máximo", min = 3, max = 20, value = 10)),
+                    sliderInput("slider_min_max_valor", label = "Valores entre:", min = 1, max = 50, value = c(1, 10))),
              column(2,
                    actionButton("geraElementos", "Gerar Elementos"))
            ),
@@ -29,7 +29,7 @@ medidas_resumo <- fluidPage(
                              actionLink("mediaMostrarMais", "Mostrar mais"),
                              hidden(actionLink("mediaMostrarMenos", "Mostrar menos")),
                              hidden(p("A média aritmética, medida mais familiar, é a soma dos valores das 
-                                      observações dividido pelo número delas.", id = "mediaTexto")),
+                                      observações dividido pela quantidade de observações.", id = "mediaTexto")),
                              hidden(uiOutput("mediaExplain")),
                              hidden(helpText(id="htMedia", "Exemplo com os elementos gerados:"),
                                     verbatimTextOutput("exMedia"))
