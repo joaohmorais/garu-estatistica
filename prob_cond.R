@@ -1,31 +1,32 @@
 prob_cond <- fluidPage(
   h3(strong("Probabilidade Condicional")),
-  fluidRow(column(2,
-                  p("A probabilidade condicional refere-se à probabilidade de um evento A acontecer dado que 
-                    um evento B já aconteceu. Ou seja, agora em vez de calcular a probabilidade de um determinado 
-                    indivíduo ser homem ou gostar de um determinado tipo de comida, calculamos a probabilidade 
-                    dele ser homem dado que o indivíduo gosta de tal tipo de comida. Ou seja, limitamos o nosso 
-                    espaço amostral para um em que uma condição já ocorreu."),
-                  selectInput("condTabVar1", "Variável 1", choices = colnames(data)[c(-3, -2, -8)], selected = "Percepção de Saúde"),
-                  selectInput("condTabVar2", "Variável 2", choices = colnames(data)[c(-3, -2, -8)], selected = "Vegetais nas refeições")
+  fluidRow(column(6, 
+                  wellPanel(HTML("<p>A probabilidade condicional refere-se à probabilidade de um evento A acontecer <strong>dado que 
+                    um evento B já aconteceu</strong>. Ou seja, agora em vez de calcular a probabilidade de uma variável assumir 
+                                 um valor dentre todas as ocorrências possíveis, analisamos apenas entre as ocorrências em que uma outra 
+                                 variável já assumiu um outro valor. 
+                                 Exemplo: Em vez de calcular a probabilidade de um indivíduo praticar esportes, podemos 
+                                 calcular a probabilidade de um indivíduo praticar esportes <strong>dado que</strong>
+                                 esse indivíduo pratica exercícios físicos.</p>"))
                   ),
-           column(6, "Tabela de Frequências",
-                  tableOutput("tabelaProbCond")),
-           column(4, "Processo de Cálculo",
+           column(6, align = "center",
+                  uiOutput("tabelaCondUI")
+                  )
+           
+           ),
+  fluidRow(column(6,
+                    column(6, 
+                           wellPanel(uiOutput("selectProbCondVar"))
+                           ),
+                    column(6, align = "center", wellPanel(withMathJax("P(A | B) = $$\\frac{P(A ∩ B)}{P(B)} $$")))
+                    
                   
-                  uiOutput("selectProbCondVar"),
-                  
-                  withMathJax("P(A | B) = $$\\frac{P(A ∩ B)}{P(B)} $$"),
-                  verbatimTextOutput("caixaContaProbCond")
-                  
-                  
-                  # selectInput("prob_in1", "Probabilidade de: ", c("Feminino", "Masculino", levels(tb$`Culinária/Sexo`))),
-                  # radioButtons("probOp", " ", choices = c("União" = "uniao", "Intersecção" = "intersec", 
-                  #                                         "Apenas dela" = "only"), selected = "only"),
-                  # conditionalPanel("input.probOp != 'only'",
-                  #                  selectInput("prob_in2", "com: ", c("Feminino", "Masculino", levels(tb$`Culinária/Sexo`)), 
-                  #                              selected = "Africana")),
-                  # uiOutput("formulasProb"),
-                  # verbatimTextOutput("caixaContaProb")
-                  ))
+  ),
+  column(6,
+         h4(strong("Cálculo")),
+         verbatimTextOutput("caixaContaProbCond")
+  )
+  )
+  
+
 )

@@ -86,19 +86,19 @@ tab_frequencia_ano_letivo$prop <- round(tab_frequencia_ano_letivo$Freq/sum(tab_f
 tab_frequencia_ano_letivo$porc <- scales::percent(tab_frequencia_ano_letivo$prop)
 colnames(tab_frequencia_ano_letivo) <- c("Ano Letivo", "Frequência", "Proporção", "Porcentagem")
 
-#tabela culinária sexo
+#tabela culinária sexo (DEPRECATED)
 
-tb <- table(data$`Culinária favorita`, data$Sexo)
-tb <- as.data.frame(cbind(rownames(tb), as.numeric(tb[,1]), as.numeric(tb[,2])))
-colnames(tb) <- c("Culinária/Sexo", "Feminino", "Masculino")
-tb$Feminino <- as.numeric(as.character(tb$Feminino))
-tb$Masculino <- as.numeric(as.character(tb$Masculino))
-tb$`Culinária/Sexo` <- as.character(tb$`Culinária/Sexo`)
-tb <- rbind(tb, c("Total", sum(tb$Feminino), sum(tb$Masculino)))
-tb$Feminino <- as.numeric(as.character(tb$Feminino))
-tb$Masculino <- as.numeric(as.character(tb$Masculino))
-tb$Total <- tb$Feminino + tb$Masculino
-tb$`Culinária/Sexo` <- as.factor(tb$`Culinária/Sexo`)
+# tb <- table(data$`Culinária favorita`, data$Sexo)
+# tb <- as.data.frame(cbind(rownames(tb), as.numeric(tb[,1]), as.numeric(tb[,2])))
+# colnames(tb) <- c("Culinária/Sexo", "Feminino", "Masculino")
+# tb$Feminino <- as.numeric(as.character(tb$Feminino))
+# tb$Masculino <- as.numeric(as.character(tb$Masculino))
+# tb$`Culinária/Sexo` <- as.character(tb$`Culinária/Sexo`)
+# tb <- rbind(tb, c("Total", sum(tb$Feminino), sum(tb$Masculino)))
+# tb$Feminino <- as.numeric(as.character(tb$Feminino))
+# tb$Masculino <- as.numeric(as.character(tb$Masculino))
+# tb$Total <- tb$Feminino + tb$Masculino
+# tb$`Culinária/Sexo` <- as.factor(tb$`Culinária/Sexo`)
 
 #handling NA
 #sapply(data, function(x) sum(is.na(x)))

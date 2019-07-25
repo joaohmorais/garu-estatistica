@@ -122,20 +122,15 @@ teste_qui <- sidebarLayout(
 )
 
 teste_corr <- sidebarLayout(sidebarPanel(withMathJax(),
-                                         h3(strong("Teste de Correlação de Pearson")),
-                                         selectInput("testeCorrVar1", "Variável 1", 
-                                                     choices = colnames(data)[c(2, 3, 8, 14)], 
-                                                     selected = "Altura"),
-                                         selectInput("testeCorrVar2", "Variável 2", 
-                                                     choices = colnames(data)[c(2, 3, 8, 14)],
-                                                     selected = "Peso"),
-                                         withMathJax(helpText("Coeficiente ρ = 
-                                                              $$\\frac{1}{n}\\sum_{i=1}^{n}
-                                                              (\\frac{x_{i} - \\bar{x}}{dp(X)})
-                                                              (\\frac{y_{i} - \\bar{y}}{dp(Y)})$$")),
-                                         p("ρ = -1: Correlação linear perfeita negativa"),
-                                         p("ρ = 0: Não há nenhuma relação linear"),
-                                         p("ρ = 1: Correlação linear perfeita positiva")
+                                         h3(strong("Testes de Correlação")),
+                                         selectInput("tipoTesteCorr", "Teste", choices = 
+                                                       c("Spearman" = "spearman", 
+                                                         "Pearson" = "pearson")),
+                                         
+                                         uiOutput("selectTesteCorrVarUI"),
+                                         uiOutput("testeCorrExplicacao")
+                                         
+                                         
                                          
                                          
                             ),

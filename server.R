@@ -51,7 +51,9 @@ testeQui_params$chi <- 9.3
 
 userData <- reactiveValues(data=data, custom=FALSE, factors=native_factors, 
                            numbers = native_numbers, shortLevels = native_shortLevels,
-                           continuous = native_continuous)
+                           continuous = native_continuous, uploaded = FALSE)
+
+loaded <- reactiveValues()
 
 
 blue <- c("#A1D2CE", "#8AD1CB", "#78CAD2", "#62A8AC", "#4CA6AA", "#5497A7", "#50858B", "#254A4F")
@@ -140,7 +142,8 @@ function(input, output, session) {
   checaDialog <- reactive({
     # Check that data object exists and is data frame.
     tryCatch({
-      userData$data <- read.csv(input$userDataUploader$datapath)
+      userData$data <- read.csv(input$userDataUploader$datapath, header = input$selecionarDadosHeader)
+      
       userData$nome <- input$userDataUploader$name
       if (!is.null(userData$data$X)) {
         userData$data$X <- NULL
@@ -150,6 +153,12 @@ function(input, output, session) {
       userData$shortLevels <- sapply(userData$data, nlevels) < 8 & userData$factors
       userData$continuous <- sapply(userData$data, is.numeric)
       userData$custom <- TRUE
+      userData$uploaded <- TRUE
+      loaded$data <- userData$data
+      loaded$nome <- userData$nome
+      loaded$factors <- userData$factors
+      loaded$shortLevels <- userData$shortLevels
+      loaded$continuous <- userData$continuous
       updateSelectInput(session, "varGrafQuant")
     }, error = function(e) {updateSelectInput(session, "dataSource", selected = "nativo")
       showNotification("Não foi possível importar seu conjunto de dados. Verifique 
@@ -177,9 +186,18 @@ function(input, output, session) {
   )
   
   observeEvent(input$dataSource, {
-    if (input$dataSource == "Dados do usuário"
-        && !userData$custom) {
-      showModal(userDataDialog())
+    if (input$dataSource == "Dados do usuário") {
+      if (userData$uploaded) {
+        userData$data <- loaded$data
+        userData$factors <- loaded$factors
+        userData$numbers <- loaded$numbers
+        userData$shortLevels <- loaded$shortLevels
+        userData$continuous <- loaded$continuous
+        userData$custom <- TRUE
+      } else {
+        showModal(userDataDialog())
+      }
+      
     }
     
     if (input$dataSource == "nativo") {
@@ -1171,83 +1189,7 @@ medidas resumo, e construção de histogramas e boxplots, para a variável quant
     
   })
   
-  output$tabelaProbDef <- renderTable({
-    tb
-  }, striped = TRUE, bordered = TRUE, digits = 0, width = "100%")
   
-  output$caixaContaProb <- renderText({
-    letter1 <- substr(input$prob_in1, 1, 2)
-    letter2 <- "NO_INPUT"
-    freq1 <- ifelse((input$prob_in1 %in% c("Masculino", "Feminino")), 
-                    tb[9, input$prob_in1], 
-                    tb[tb$`Culinária/Sexo` == input$prob_in1, "Total"])
-    freq2 <- 0
-    freq3 <- 0
-    if (input$probOp != "only") {
-      letter2 <- substr(input$prob_in2, 1, 2)
-      if (letter2 == letter1) {
-        letter2 <- substr(input$prob_in2, 1, 4)
-      }
-      
-      freq2 <- ifelse((input$prob_in2 %in% c("Masculino", "Feminino")), 
-                      tb[9, input$prob_in2], 
-                      tb[tb$`Culinária/Sexo` == input$prob_in2, "Total"])
-      
-      if (!xor((input$prob_in1 %in% c("Masculino", "Feminino")),(input$prob_in2 %in% c("Masculino", "Feminino")))) { #são iguais
-        freq3 <- ifelse(input$prob_in1 == input$prob_in2, freq1, 0)
-      } else {
-        if (input$prob_in1 %in% c("Masculino", "Feminino")) {
-          freq3 <- tb[tb$`Culinária/Sexo` == input$prob_in2, input$prob_in1]
-        } else {
-          freq3 <- tb[tb$`Culinária/Sexo` == input$prob_in1, input$prob_in2]
-        }
-      }
-    }
-    text <- paste0(letter1, " = ", input$prob_in1, "\n")
-    text <- paste0(text, "P(", letter1, ") = ", 
-                   freq1,
-                   "/", tb[9, "Total"], " = ", round((freq1/tb[9, "Total"]), 4), " = ", 
-                   scales::percent(round((freq1/tb[9, "Total"]), 4)),
-                   "\n"
-    )
-    
-    if (letter2 != "NO_INPUT") {
-      text <- paste0(text, "\n", letter2, " = ", input$prob_in2, "\n",
-                     "P(", letter2, ") = ", freq2,
-                     "/", tb[9, "Total"], " = ", round((freq2/tb[9, "Total"]), 4), " = ", 
-                     scales::percent(round((freq2/tb[9, "Total"]), 4)),"\n"
-                     
-                     )
-      
-      text <- paste0(text, "\nP(", letter1, " ∩ ", letter2, ") = ", freq3, "/", tb[9, "Total"], 
-                     " = ", round((freq3/tb[9, "Total"]), 4), " = ", 
-                     scales::percent(round((freq3/tb[9, "Total"]), 4)), "\n")
-      
-      if (input$probOp == "uniao") {
-        text <- paste0(text, "\nP(", letter1, " ∪ ", 
-                       letter2, ") = ", "P(", letter1, ") + P(", letter2, ") - P(", letter1, " ∩ ", letter2,
-                       ") = ", round((freq1/tb[9, "Total"]), 4), " + ", round((freq2/tb[9, "Total"]), 4), 
-                       " - ", round((freq3/tb[9, "Total"]), 4), " = ", 
-                       round(((freq1 + freq2 - freq3)/tb[9, "Total"]), 4), " = ",
-                       scales::percent(round(((freq1 + freq2 - freq3)/tb[9, "Total"]), 4)), "\n"
-                       )
-      }
-    }
-    
-    text
-                   
-  })
-  
-  
-  output$formulasProb <- renderUI({
-    formula <- ifelse(input$probOp == "uniao", 
-                      "P(A ∪ B) = $$ P(A) + P(B) - P(A ∩ B) $$",
-                      ifelse(input$probOp == "intersec", 
-                             "P(A ∩ B) = $$\\frac{Freq(A, B)}{Total}$$", 
-                             "P(A) = $$\\frac{Freq(A)}{Total}$$")
-                      )
-    withMathJax(helpText(formula))
-  })
   
   bernoulliPlot <- reactive({
     p <- input$bernoulli_p
@@ -1584,13 +1526,46 @@ medidas resumo, e construção de histogramas e boxplots, para a variável quant
     g
   })
   
+  #####################################################################3####33
+  ##################### P R O B A B I L I D A D E ############################
+  ############################################################################
   
-  #create frequency table
-  output$tabelaProbCond <- renderTable({
-    var1 <- input$condTabVar1
-    var2 <- input$condTabVar2
+  output$tabelaProbUI <- renderUI({
+    tags <- NULL
+    if (sum(userData$shortLevels) >= 2) {
+      tags <- tagList(
+        fluidRow(
+          column(6, 
+                 selectInput("probTabVar1", "Variável 1", choices = colnames(userData$data)[userData$shortLevels], selected = colnames(userData$data)[userData$shortLevels][1])
+          ),
+          column(6, selectInput("probTabVar2", "Variável 2", choices = colnames(userData$data)[userData$shortLevels], selected = colnames(userData$data)[userData$shortLevels][2]))
+        ),
+        tableOutput("tabelaProbDef")
+      )
+    } else {
+      tags <- tagList(
+        column(12, align = "center",
+               p("O conjunto de dados que você escolheu não tem variáveis qualitativas o 
+                 suficiente para esta função. Escolha outro conjunto de dados ou utilize nosso 
+                 nativo."))
+      )
+    }
     
-    tab <- table(data[,colnames(data) == var1], data[,colnames(data) == var2])
+    tags
+    
+    
+    
+  })
+  
+  output$tabelaProbDef <- renderTable({
+    req(input$probTabVar1)
+    req(input$probTabVar2)
+    req(input$probTabVar1 %in% colnames(userData$data)[userData$shortLevels])
+    req(input$probTabVar2 %in% colnames(userData$data)[userData$shortLevels])
+    var1 <- input$probTabVar1
+    var2 <- input$probTabVar2
+    
+    tab <- table(userData$data[,colnames(userData$data) == var1], userData$data[,colnames(userData$data) == var2])
     tab <- as.data.frame.matrix(tab)
     tab <- cbind(rownames(tab), tab)
     rownames(tab) <- NULL
@@ -1600,45 +1575,221 @@ medidas resumo, e construção de histogramas e boxplots, para a variável quant
     tab <- rbind(tab, c("Total", colSums(tab[-1])))
     tab[,1] <- as.factor(tab[,1])
     tab
-  }, striped = TRUE, bordered = TRUE)
+  }, striped = TRUE, bordered = TRUE, digits = 0, width = "80%")
   
-  output$caixaContaProbCond <- renderText({
+  output$calcProbUI <- renderUI({
+    tags <- NULL
+    if (sum(userData$shortLevels) >= 2) {
+      req(input$probTabVar1)
+      req(input$probTabVar2)
+      req(input$probTabVar1 %in% colnames(userData$data)[userData$shortLevels])
+      req(input$probTabVar2 %in% colnames(userData$data)[userData$shortLevels])
+      tags <- tagList(
+        selectInput("prob_in1", "Probabilidade de: ", 
+                    choices = levels((userData$data[,colnames(userData$data) == input$probTabVar1]))),
+        radioButtons("probOp", " ", choices = c("União" = "uniao", "Intersecção" = "intersec", 
+                                                "Apenas dela" = "only"), selected = "only"),
+        conditionalPanel("input.probOp != 'only'",
+                         selectInput("prob_in2", "com: ", 
+                                     choices = levels((userData$data[,colnames(userData$data) == input$probTabVar2]))))
+      )
+    }
     
-    req(input$prob_cond1)
-    req(input$prob_cond2)
+    tags
     
+  })
+  
+  output$caixaContaProb <- renderText({
+    text <- "Nada a mostrar."
+    if (sum(userData$shortLevels) >= 2) {
+      req(input$probTabVar1)
+      req(input$probTabVar2)
+      req(input$probTabVar1 %in% colnames(userData$data)[userData$shortLevels])
+      req(input$probTabVar2 %in% colnames(userData$data)[userData$shortLevels])
+      req(input$probOp)
+      var1 <- input$probTabVar1
+      var2 <- input$probTabVar2
+      att1 <- input$prob_in1
+      att2 <- NULL
+      letter1 <- substr(input$prob_in1, 1, 2)
+      letter2 <- "NO_INPUT"
+      
+      #numero de ocorrencias primeiro caso
+      freq1 <- nrow(userData$data[userData$data[!is.na(userData$data[var1]),colnames(userData$data) == var1] == att1,])
+      tot <- nrow(userData$data[!is.na(userData$data[var1]) & !is.na(userData$data[var2]),])
+      #pode ser que nao tenha segunda variavel
+      freq2 <- 0
+      freq12 <- 0
+      #se houver segunda variavel:
+      if (input$probOp != "only") {
+        att2 <- input$prob_in2
+        letter2 <- substr(att2, 1, 2)
+        if (letter2 == letter1) {
+          letter2 <- substr(att2, 1, 4)
+        }
+        
+        freq2 <- nrow(userData$data[userData$data[!is.na(userData$data[var2]),colnames(userData$data) == var2] == att2,])
+        freq12 <- nrow(userData$data[userData$data[!is.na(userData$data[var1]) & !is.na(userData$data[var2]),colnames(userData$data) == var1] == att1 & 
+                                       userData$data[!is.na(userData$data[var1]) & !is.na(userData$data[var2]),colnames(userData$data) == var2] == att2,])
+        
+      }
+      print(letter1)
+      print(letter2)
+      text <- paste0(letter1, " = ", att1, "\n")
+      text <- paste0(text, "P(", letter1, ") = Probabilidade de ", var1, " ser ", att1, "\n")
+      text <- paste0(text, "P(", letter1, ") = ", 
+                     freq1,
+                     "/", tot, " = ", round((freq1/tot), 4), " = ", 
+                     scales::percent(round((freq1/tot), 4)),
+                     "\n"
+      )
+      
+      if (letter2 != "NO_INPUT") {
+        text <- paste0(text, "\n", letter2, " = ", att2, "\n",
+                       "P(", letter2, ") = Probabilidade de ", var2, " ser ", att2, "\n",
+                       "P(", letter2, ") = ", freq2,
+                       "/", tot, " = ", round((freq2/tot), 4), " = ", 
+                       scales::percent(round((freq2/tot), 4)),"\n"
+                       
+        )
+        
+        text <- paste0(text, 
+                       "\nP(", letter1, " ∩ ", letter2, ") =  Probabilidade de ", 
+                       var1, " ser ", att1, " e ", var2, " ser ", att2, 
+                       "\nP(", letter1, " ∩ ", letter2, ") = ", freq12, "/", tot, 
+                       " = ", round((freq12/tot), 4), " = ", 
+                       scales::percent(round((freq12/tot), 4)), "\n")
+        
+        if (input$probOp == "uniao") {
+          text <- paste0(text, "\nP(", letter1, " ∪ ", 
+                         letter2, ") = ", "P(", letter1, ") + P(", letter2, ") - P(", letter1, " ∩ ", letter2,
+                         ") = ", round((freq1/tot), 4), " + ", round((freq2/tot), 4), 
+                         " - ", round((freq12/tot), 4), " = ", 
+                         round(((freq1 + freq2 - freq12)/tot), 4), " = ",
+                         scales::percent(round(((freq1 + freq2 - freq12)/tot), 4)), "\n"
+          )
+        }
+      }
+    }
+    
+    
+    text
+    
+  })
+  
+  
+  output$formulasProb <- renderUI({
+    formula <- ifelse(input$probOp == "uniao", 
+                      "P(A ∪ B) = $$ P(A) + P(B) - P(A ∩ B) $$",
+                      ifelse(input$probOp == "intersec", 
+                             "P(A ∩ B) = $$\\frac{Freq(A, B)}{Total}$$", 
+                             "P(A) = $$\\frac{Freq(A)}{Total}$$")
+    )
+    withMathJax(helpText(formula))
+  })
+  
+  output$tabelaCondUI <- renderUI({
+    tags <- NULL
+    if (sum(userData$shortLevels) >= 2) {
+      tags <- tagList(
+        column(6, selectInput("condTabVar1", "Variável 1", choices = colnames(userData$data)[userData$shortLevels], selected = colnames(userData$data)[userData$shortLevels][1])),
+        column(6, selectInput("condTabVar2", "Variável 2", choices = colnames(userData$data)[userData$shortLevels], selected = colnames(userData$data)[userData$shortLevels][2])),
+        tableOutput("tabelaProbCond")
+      )
+    } else {
+      tags <- tagList(
+        column(12, align = "center",
+               p("O conjunto de dados que você escolheu não tem variáveis qualitativas o 
+                 suficiente para esta função. Escolha outro conjunto de dados ou utilize nosso 
+                 nativo."))
+      )
+    }
+    
+    tags
+  })
+  
+  
+  #create frequency table
+  output$tabelaProbCond <- renderTable({
+    req(input$condTabVar1)
+    req(input$condTabVar2)
+    req(input$condTabVar1 %in% colnames(userData$data)[userData$shortLevels])
+    req(input$condTabVar2 %in% colnames(userData$data)[userData$shortLevels])
     var1 <- input$condTabVar1
     var2 <- input$condTabVar2
-    att1 <- input$prob_cond1
-    att2 <- input$prob_cond2
-    tot <- nrow(data)
     
-    freq1 <- nrow(data[data[!is.na(data[var1]),colnames(data) == var1] == att1,])
-    freq2 <- nrow(data[data[!is.na(data[var2]),colnames(data) == var2] == att2,])
-    freq12 <- nrow(data[data[!is.na(data[var1]) & !is.na(data[var2]),colnames(data) == var1] == att1 & 
-                          data[!is.na(data[var1]) & !is.na(data[var2]),colnames(data) == var2] == att2,])
+    tab <- table(userData$data[,colnames(userData$data) == var1], userData$data[,colnames(userData$data) == var2])
+    tab <- as.data.frame.matrix(tab)
+    tab <- cbind(rownames(tab), tab)
+    rownames(tab) <- NULL
+    colnames(tab)[1] <- paste0(var1, "/", var2)
+    tab$Total <- rowSums(tab[-1])
+    tab[,1] <- as.character(tab[,1])
+    tab <- rbind(tab, c("Total", colSums(tab[-1])))
+    tab[,1] <- as.factor(tab[,1])
+    tab
+  }, striped = TRUE, bordered = TRUE, width = "80%")
+  
+  output$caixaContaProbCond <- renderText({
+    text <- NULL
+    if (sum(userData$shortLevels) >= 2) {
+      req(input$prob_cond1)
+      req(input$prob_cond2)
+      req(input$condTabVar1 %in% colnames(userData$data)[userData$shortLevels])
+      req(input$condTabVar2 %in% colnames(userData$data)[userData$shortLevels])
+      
+      var1 <- input$condTabVar1
+      var2 <- input$condTabVar2
+      att1 <- input$prob_cond1
+      att2 <- input$prob_cond2
+      tot <- nrow(userData$data[!is.na(userData$data[var1]) & !is.na(userData$data[var2]),])
+      
+      freq1 <- nrow(userData$data[userData$data[!is.na(userData$data[var1]) & !is.na(userData$data[var2])
+                                                ,colnames(userData$data) == var1] == att1,])
+      freq2 <- nrow(userData$data[userData$data[!is.na(userData$data[var1]) & !is.na(userData$data[var2]),
+                                                colnames(userData$data) == var2] == att2,])
+      freq12 <- nrow(userData$data[userData$data[!is.na(userData$data[var1]) & !is.na(userData$data[var2]),colnames(userData$data) == var1] == att1 & 
+                                     userData$data[!is.na(userData$data[var1]) & !is.na(userData$data[var2]),colnames(userData$data) == var2] == att2,])
+      
+      text <- paste0("A: ", var1, " é ", att1, "\n")
+      text <- paste0(text, "B: ", var2, " é ", att2, "\n\n")
+      
+      text <- paste0(text, "P(A) = ", freq1, "/", tot, " = ", round((freq1/tot), 4), "\n")
+      text <- paste0(text, "P(B) = ", freq2, "/", tot, "= ", round((freq2/tot), 4), "\n")
+      text <- paste0(text, "P(A ∩ B) = ", freq12, "/", tot, " = ", round((freq12/tot), 4), "\n\n")
+      
+      text <- paste0(text, "P(A | B) = P(A ∩ B)/P(B)\n")
+      text <- paste0(text, "P(A | B) = ", round((freq12/tot), 4), "/", round((freq2/tot), 4), "\n")
+      f <- ((freq12/tot)/(freq2/tot))
+      text <- paste0(text, "P(A | B) = ", round(f, 4), "\n")
+      text <- paste0(text, "P(A | B) = ", round(f*100, 2), ifelse(!is.nan(f), "%\n", ""))
+    } else {
+      text <- "Nada a mostrar."
+    }
     
-    text <- paste0("A: ", var1, " é ", att1, "\n")
-    text <- paste0(text, "B: ", var2, " é ", att2, "\n\n")
-    
-    text <- paste0(text, "P(A) = ", freq1, "/", tot, " = ", (freq1/tot), "\n")
-    text <- paste0(text, "P(B) = ", freq2, "/", tot, "= ", (freq2/tot), "\n")
-    text <- paste0(text, "P(A ∩ B) = ", freq12, "/", tot, " = ", (freq12/tot), "\n\n")
-    
-    text <- paste0(text, "P(A | B) = P(A ∩ B)/P(B)\n")
-    text <- paste0(text, "P(A | B) = ", (freq12/tot), "/", (freq2/tot), "\n")
-    f <- ((freq12/tot)/(freq2/tot))
-    text <- paste0(text, "P(A | B) = ", f, "\n")
-    text <- paste0(text, "P(A | B) = ", round(f*100, 2), "%\n")
     
     text
   })
   
   output$selectProbCondVar <- renderUI({
-    tagList(
-      selectInput("prob_cond1", "Probabilidade de: ", levels((data[,colnames(data) == input$condTabVar1]))),
-      selectInput("prob_cond2", "dado que: ", levels((data[,colnames(data) == input$condTabVar2])))
-    )
+    tags <- NULL
+    if (sum(userData$shortLevels) >= 2) {
+      req(input$condTabVar1, input$condTabVar2)
+      req(input$condTabVar1 %in% colnames(userData$data)[userData$shortLevels])
+      req(input$condTabVar2 %in% colnames(userData$data)[userData$shortLevels])
+      tags <- tagList(
+        #column(6, 
+               selectInput("prob_cond1", "Probabilidade de: ", levels((userData$data[,colnames(userData$data) == input$condTabVar1]))),
+               selectInput("prob_cond2", "dado que: ", levels((userData$data[,colnames(userData$data) == input$condTabVar2])))
+        #)#,
+        #column(6, 
+               #align = "center", withMathJax("P(A | B) = $$\\frac{P(A ∩ B)}{P(B)} $$")
+        #)
+      )
+    }
+    tags
+    
+    
   })
   
   
@@ -1957,11 +2108,55 @@ medidas resumo, e construção de histogramas e boxplots, para a variável quant
       text <- paste0(text, "Como o valor-qui está dentro da região crítica, H0 é rejeitada e portanto H1 é aceita, ou seja,
                      há influência quando ", input$testeQuiRow1, " ou ", input$testeQuiRow2, ".")
     }
+    
     text
   })
   
+  output$testeCorrExplicacao <- renderUI({
+    tags <- NULL
+    req(input$tipoTesteCorr)
+    if (input$tipoTesteCorr == "spearman") {
+      
+    } else {
+      tags <- tagList(
+        withMathJax(helpText("Coeficiente ρ = 
+                                                              $$\\frac{1}{n}\\sum_{i=1}^{n}
+                                                              (\\frac{x_{i} - \\bar{x}}{dp(X)})
+                                                              (\\frac{y_{i} - \\bar{y}}{dp(Y)})$$")),
+        p("ρ = -1: Correlação linear perfeita negativa"),
+        p("ρ = 0: Não há nenhuma relação linear"),
+        p("ρ = 1: Correlação linear perfeita positiva")
+      )
+    }
+    tags
+  })
+  
   getCorrPlotData <- reactive({
-    return (as.data.frame(cbind(data[,colnames(data) == input$testeCorrVar1], data[,colnames(data) == input$testeCorrVar2])))
+    req(input$testeCorrVar1)
+    req(input$testeCorrVar2)
+    req(input$testeCorrVar1 %in% colnames(userData$data))
+    req(input$testeCorrVar2 %in% colnames(userData$data))
+    return (as.data.frame(cbind(userData$data[,colnames(userData$data) == input$testeCorrVar1], 
+                                userData$data[,colnames(userData$data) == input$testeCorrVar2])))
+  })
+  
+  output$selectTesteCorrVarUI <- renderUI({
+    tags <- NULL
+    if (sum(userData$numbers) >= 2) {
+      tags <- tagList(
+        selectInput("testeCorrVar1", "Variável 1", 
+                    choices = colnames(userData$data)[userData$numbers], 
+                    selected = colnames(userData$data)[userData$numbers][1]),
+        selectInput("testeCorrVar2", "Variável 2", 
+                    choices = colnames(userData$data)[userData$numbers],
+                    selected = colnames(userData$data)[userData$numbers][2])
+      )
+    } else {
+      tags <- tagList(p("Os dados que você está utilizando não possuem uma quantidade suficiente de variáveis 
+        quantitativas (duas). Por favor selecione outro conjunto de dados ou utilize nosso padrão."))
+    }
+    
+    tags
   })
   
   output$testeCorrPlot <- renderPlot({
@@ -1979,7 +2174,7 @@ medidas resumo, e construção de histogramas e boxplots, para a variável quant
   output$testeCorrConta <- renderText({
     selData <- getCorrPlotData()
     colnames(selData) <- c("Var1", "Var2")
-    correlacao <- cor(selData$Var1, selData$Var2)
+    correlacao <- cor(selData$Var1, selData$Var2, method = input$tipoTesteCorr, use = "all.obs")
     text <- paste0("Correlação(", input$testeCorrVar1, ", ", input$testeCorrVar2, ") = ", correlacao)
     text
   })

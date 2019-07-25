@@ -1,27 +1,28 @@
 def_prob <- fluidPage(
   h3(strong("Definição de Probabilidade")),
   fluidRow(column(6,
-                  wellPanel(p("Um evento é um subconjunto de realizações de interesse entre todas as possíveis. As frequências relativas nos dão uma noção das ocorrências de um determinado evento em um estudo. Ou seja, elas são estimativas de probabilidade de tais eventos. Essa probabilidade se dá dividindo o número de casos em que o evento esperado ocorre pelo número total de observações.
-                    "),
+                  wellPanel(HTML("<p>Um evento é um <strong>subconjunto de realizações de interesse entre todas as possíveis</strong>. 
+As frequências relativas nos dão uma noção das ocorrências de um determinado evento em um estudo. 
+Ou seja, elas são <strong>estimativas de probabilidade</strong> de tais eventos. Essa probabilidade 
+se dá dividindo o <strong>número de casos</strong> em que o evento esperado ocorre pelo <strong>número total</strong> de observações.
+                    </p>"),
                   br(),
-                  p("Ao lado, encontra-se uma tabela de frequências de nossa base de dados das variáveis 
-                    'Sexo' e 'Culinária Favorita'. Assim, podemos calcular as probabilidades de, ao escolher um 
-                    indivíduo dessa base ao acaso, este ser homem ou mulher. Ou de gostar 
-                    de comida Mexicana. Ou de ser homem e gostar de comida mexicana. Explore essas probabilidades por meio da 
-                    tabela e das entradas ao lado.")
+                  HTML("<p>Ao lado, encontra-se uma tabela de frequências dos dados. Podemos montá-la com variáveis 
+                    qualitativas (ou com quantitativas se delimitarmos intervalos), que podem ser alteradas 
+                    ao lado . A partir dessas frequências, calculamos um valor de probabilidade de uma variável 
+                    ter um determinado valor dentre todas as ocorrências (um evento). Note que podemos calcular 
+                    a probabilidade da <strong>união</strong> ou da <strong>intersecção</strong> de dois eventos.</p>")
                   )),
-           column(6, "Tabela de Frequências",
-                  tableOutput("tabelaProbDef"))),
+           column(6, align = "center",
+                  uiOutput("tabelaProbUI")
+                  )),
   fluidRow(
-    column(6, wellPanel("Processo de Cálculo",
-           
-           selectInput("prob_in1", "Probabilidade de: ", c("Feminino", "Masculino", levels(tb$`Culinária/Sexo`))),
-           radioButtons("probOp", " ", choices = c("União" = "uniao", "Intersecção" = "intersec", 
-                                                   "Apenas dela" = "only"), selected = "only"),
-           conditionalPanel("input.probOp != 'only'",
-                            selectInput("prob_in2", "com: ", c("Feminino", "Masculino", levels(tb$`Culinária/Sexo`)), 
-                                        selected = "Africana")),
-           uiOutput("formulasProb"))
+    column(6, 
+           column(6, 
+                  wellPanel(uiOutput("calcProbUI"))
+                  ),
+           column(6, align = "center",
+                  wellPanel(uiOutput("formulasProb")))
     ),
     column(6, 
            h4(strong("Cálculo")),
